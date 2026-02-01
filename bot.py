@@ -398,6 +398,9 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
     
     def run(self):
         """Lancer le bot avec webhooks pour Railway"""
+        from aiohttp import web
+        import os
+        
         app = Application.builder().token(self.token).build()
         
         # Commandes
@@ -417,30 +420,46 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
         PORT = int(os.environ.get('PORT', 8443))
         APP_NAME = os.environ.get('RAILWAY_STATIC_URL', '')
         
-        if APP_NAME:
-            # Mode Railway - utiliser le nom d'application généré
-            webhook_url = f"https://{APP_NAME}.railway.app/"
-        else:
-            # Mode local - utiliser localhost
-            webhook_url = f"https://localhost:{PORT}/"
-        
-        print(f"📡 Port: {PORT}")
-        print(f"🌐 Webhook URL: {webhook_url}")
-        print("⏳ Démarrage du bot...")
-        
-        # Démarrer le bot
         if APP_NAME:  # Mode production (Railway)
-            app.run_webhook(
-                listen="0.0.0.0",
-                port=PORT,
-                webhook_url=webhook_url,
+            webhook_url = f"https://{APP_NAME}.railway.app/"
+            
+            # Créer une app aiohttp pour gérer les health checks
+            async def health_check(request):
+                return web.Response(text='OK', status=200)
+            
+            # Créer l'application web
+            web_app = web.Application()
+            web_app.router.add_get('/health', health_check)
+            
+            # Configurer le bot webhook
+            await app.bot.set_webhook(
+                url=webhook_url,
                 secret_token=None,
-                cert=None,
-                key=None,
-                drop_pending_updates=True,
-                allowed_updates=Update.ALL_TYPES,
+                certificate=None,
+                max_connections=40,
+                allowed_updates=None,
+                drop_pending_updates=True
             )
+            print(f"✅ Webhook configuré: {webhook_url}")
+            
+            # Créer le runner
+            runner = web.AppRunner(web_app)
+            await runner.setup()
+            
+            # Configurer le site
+            site = web.TCPSite(runner, '0.0.0.0', PORT)
+            await site.start()
+            
+            print(f"✅ Serveur démarré sur le port {PORT}")
+            print("✅ Health check disponible sur /health")
+            print("🤖 Bot en ligne et opérationnel!")
+            
+            # Garder le bot actif
+            await asyncio.Event().wait()
+            
         else:  # Mode développement (local)
+            print("💻 Mode développement (polling)")
+            print("⏳ Démarrage du bot...")
             app.run_polling()
 
 
@@ -494,3 +513,4 @@ if __name__ == "__main__":
         print("\n👋 Arrêt du bot.")
     except Exception as e:
         print(f"❌ Erreur: {e}")
+
