@@ -10,12 +10,16 @@ import re
 import base64
 import json
 import logging
+import os
 from urllib.parse import unquote, urljoin
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Configuration logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class PDFEmbedderExtractor:
@@ -397,10 +401,7 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
             await wait_msg.edit_text("mosamiha walakin kayn chi mochkil.")
     
     def run(self):
-        """Lancer le bot avec webhooks pour Railway"""
-        from aiohttp import web
-        import os
-        
+        """Lancer le bot - SIMPLE POLLING VERSION (for Railway worker)"""
         app = Application.builder().token(self.token).build()
         
         # Commandes
@@ -413,54 +414,11 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
         print("=" * 70)
         print("🤖 BOT PDF EMBEDDER EXTRACTOR")
         print("🎯 SPÉCIALISÉ pour elearning-cpge.com")
-        print("🌐 MODE: WEBHOOK (Railway)")
+        print("🌐 MODE: POLLING (Railway Worker)")
         print("=" * 70)
+        print("\n📝 En attente de liens elearning-cpge.com...")
         
-        # Configuration webhook pour Railway
-        PORT = int(os.environ.get('PORT', 8443))
-        APP_NAME = os.environ.get('RAILWAY_STATIC_URL', '')
-        
-        if APP_NAME:  # Mode production (Railway)
-            webhook_url = f"https://{APP_NAME}.railway.app/"
-            
-            # Créer une app aiohttp pour gérer les health checks
-            async def health_check(request):
-                return web.Response(text='OK', status=200)
-            
-            # Créer l'application web
-            web_app = web.Application()
-            web_app.router.add_get('/health', health_check)
-            
-            # Configurer le bot webhook
-            await app.bot.set_webhook(
-                url=webhook_url,
-                secret_token=None,
-                certificate=None,
-                max_connections=40,
-                allowed_updates=None,
-                drop_pending_updates=True
-            )
-            print(f"✅ Webhook configuré: {webhook_url}")
-            
-            # Créer le runner
-            runner = web.AppRunner(web_app)
-            await runner.setup()
-            
-            # Configurer le site
-            site = web.TCPSite(runner, '0.0.0.0', PORT)
-            await site.start()
-            
-            print(f"✅ Serveur démarré sur le port {PORT}")
-            print("✅ Health check disponible sur /health")
-            print("🤖 Bot en ligne et opérationnel!")
-            
-            # Garder le bot actif
-            await asyncio.Event().wait()
-            
-        else:  # Mode développement (local)
-            print("💻 Mode développement (polling)")
-            print("⏳ Démarrage du bot...")
-            app.run_polling()
+        app.run_polling()
 
 
 # TEST RAPIDE DU DÉCODAGE
@@ -484,26 +442,23 @@ def test_decodage():
 
 # POINT D'ENTRÉE
 if __name__ == "__main__":
+    # Récupérer le token depuis les variables d'environnement (Railway)
+    # Sinon, utilise le token en dur
     import os
-    
-    # Récupérer le token
     BOT_TOKEN = os.getenv('BOT_TOKEN', '8400311133:AAGK_ZvbB8ClU0L68P0TcLxFTP0KKYyzIC0')
     
-    # Détecter l'environnement
-    PORT = int(os.environ.get('PORT', 8443))
-    APP_NAME = os.environ.get('RAILWAY_STATIC_URL', '')
+    print("🚀 Lancement du Bot PDF Embedder Extractor...")
+    print("🌐 Détection de l'environnement...")
     
-    print("=" * 70)
-    if APP_NAME:
-        print("🚀 MODE PRODUCTION (Railway)")
-        print(f"🌐 URL: https://{APP_NAME}.railway.app")
+    # Vérifier si on est sur Railway
+    if os.environ.get('RAILWAY_ENVIRONMENT'):
+        print("✅ Environnement Railway détecté")
+        print("👷 Mode: Worker (background process)")
     else:
-        print("💻 MODE DÉVELOPPEMENT (Local)")
-        print(f"🌐 Localhost: http://localhost:{PORT}")
-    print("=" * 70)
+        print("💻 Environnement local détecté")
     
-    print("🤖 Bot PDF Embedder Extractor")
-    print("🎯 Spécialisé pour elearning-cpge.com")
+    print("=" * 70)
+    print("🤖 Bot prêt à recevoir des liens elearning-cpge.com")
     print("=" * 70)
     
     try:
@@ -513,4 +468,4 @@ if __name__ == "__main__":
         print("\n👋 Arrêt du bot.")
     except Exception as e:
         print(f"❌ Erreur: {e}")
-
+        logger.error(f"Erreur fatale: {e}", exc_info=True)
