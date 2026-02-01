@@ -2,6 +2,7 @@
 """
 Bot spécialisé pour elearning-cpge.com
 Extrait automatiquement les PDFs des viewers PDF Embedder
+Version compatible avec python-telegram-bot==20.7
 """
 
 import asyncio
@@ -11,6 +12,7 @@ import base64
 import json
 import logging
 import os
+import sys
 from urllib.parse import unquote, urljoin
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -18,7 +20,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # Configuration logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
 
@@ -37,7 +40,7 @@ class PDFEmbedderExtractor:
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
             }
             
-            print(f"🔍 Analyse de: {url}")
+            logger.info(f"🔍 Analyse de: {url}")
             
             # 1. Récupérer la page
             response = requests.get(url, headers=headers, timeout=10)
@@ -53,14 +56,14 @@ class PDFEmbedderExtractor:
             html = response.text
             
             # 2. Chercher le paramètre pdfemb-data (MÉTHODE PRINCIPALE)
-            print("🔎 Recherche de pdfemb-data...")
+            logger.info("🔎 Recherche de pdfemb-data...")
             
             # Pattern pour trouver pdfemb-data dans les iframes
             iframe_pattern = r'<iframe[^>]*src="([^"]*pdfemb-data[^"]*)"'
             iframe_matches = re.findall(iframe_pattern, html, re.IGNORECASE)
             
             for iframe_src in iframe_matches:
-                print(f"📦 Iframe trouvé: {iframe_src[:100]}...")
+                logger.info(f"📦 Iframe trouvé: {iframe_src[:100]}...")
                 
                 # Extraire le paramètre pdfemb-data
                 param_pattern = r'pdfemb-data=([^&"\']+)'
@@ -68,7 +71,7 @@ class PDFEmbedderExtractor:
                 
                 if param_match:
                     base64_data = param_match.group(1)
-                    print(f"🔐 pdfemb-data trouvé ({len(base64_data)} caractères)")
+                    logger.info(f"🔐 pdfemb-data trouvé ({len(base64_data)} caractères)")
                     
                     # Décoder
                     pdf_url = PDFEmbedderExtractor._decode_pdfemb_data(base64_data)
@@ -82,7 +85,7 @@ class PDFEmbedderExtractor:
                         }
             
             # 3. Chercher pdfemb-data directement dans le HTML (sans iframe)
-            print("🔎 Recherche directe de pdfemb-data...")
+            logger.info("🔎 Recherche directe de pdfemb-data...")
             direct_pattern = r'pdfemb-data[=:]["\']([^"\']+)["\']'
             direct_matches = re.findall(direct_pattern, html)
             
@@ -97,7 +100,7 @@ class PDFEmbedderExtractor:
                     }
             
             # 4. Chercher dans les scripts JavaScript
-            print("🔎 Recherche dans les scripts JS...")
+            logger.info("🔎 Recherche dans les scripts JS...")
             script_pattern = r'<script[^>]*>([^<]+)</script>'
             scripts = re.findall(script_pattern, html, re.IGNORECASE | re.DOTALL)
             
@@ -118,7 +121,7 @@ class PDFEmbedderExtractor:
                             }
             
             # 5. Méthode alternative: Chercher des URLs qui ressemblent à des viewers PDF
-            print("🔎 Recherche de viewers PDF...")
+            logger.info("🔎 Recherche de viewers PDF...")
             viewer_patterns = [
                 r'src="([^"]*viewer[^"]*\.pdf[^"]*)"',
                 r'data-src="([^"]*\.pdf)"',
@@ -158,6 +161,7 @@ class PDFEmbedderExtractor:
             }
             
         except Exception as e:
+            logger.error(f"Erreur extraction: {e}")
             return {
                 'success': False,
                 'pdf_url': None,
@@ -177,13 +181,13 @@ class PDFEmbedderExtractor:
             if padding != 4:
                 base64_str += '=' * padding
             
-            print(f"🔓 Décodage base64: {base64_str[:50]}...")
+            logger.info(f"🔓 Décodage base64: {base64_str[:50]}...")
             
             # Décoder base64
             decoded_bytes = base64.b64decode(base64_str)
             decoded_str = decoded_bytes.decode('utf-8', errors='ignore')
             
-            print(f"📄 Données décodées: {decoded_str[:100]}...")
+            logger.info(f"📄 Données décodées: {decoded_str[:100]}...")
             
             # Essayer de parser comme JSON
             if '{' in decoded_str and '}' in decoded_str:
@@ -194,14 +198,14 @@ class PDFEmbedderExtractor:
                     if 'pdfemb-serverurl' in data:
                         pdf_url_encoded = data['pdfemb-serverurl']
                         pdf_url = unquote(pdf_url_encoded)
-                        print(f"✅ URL extraite: {pdf_url}")
+                        logger.info(f"✅ URL extraite: {pdf_url}")
                         return pdf_url
                     
                     # Chercher d'autres champs possibles
                     for key, value in data.items():
                         if isinstance(value, str) and '.pdf' in value.lower():
                             pdf_url = unquote(value)
-                            print(f"✅ URL trouvée dans {key}: {pdf_url}")
+                            logger.info(f"✅ URL trouvée dans {key}: {pdf_url}")
                             return pdf_url
                 
                 except json.JSONDecodeError:
@@ -222,13 +226,13 @@ class PDFEmbedderExtractor:
                     # Décoder si URL encodée
                     if '%' in pdf_url:
                         pdf_url = unquote(pdf_url)
-                    print(f"✅ URL extraite via regex: {pdf_url}")
+                    logger.info(f"✅ URL extraite via regex: {pdf_url}")
                     return pdf_url
             
             return None
             
         except Exception as e:
-            print(f"❌ Erreur décodage: {e}")
+            logger.error(f"❌ Erreur décodage: {e}")
             return None
     
     @staticmethod
@@ -241,7 +245,7 @@ class PDFEmbedderExtractor:
                 'Referer': 'https://www.elearning-cpge.com/'
             }
             
-            print(f"📥 Téléchargement: {pdf_url}")
+            logger.info(f"📥 Téléchargement: {pdf_url}")
             
             response = requests.get(pdf_url, headers=headers, timeout=30)
             
@@ -268,15 +272,16 @@ class ELearningPDFBot:
     def __init__(self, token: str):
         self.token = token
         self.extractor = PDFEmbedderExtractor()
+        self.application = None
     
-    async def start(self, update: Update, context):
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Commande /start"""
         welcome = """
 Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift liya 4i lien direct wlba9i 3liya <3.
         """
         await update.message.reply_text(welcome)
     
-    async def handle_message(self, update: Update, context):
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Gérer les messages (URLs)"""
         user_input = update.message.text.strip()
         
@@ -336,7 +341,7 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
             logger.error(f"Erreur: {e}", exc_info=True)
             await wait_msg.edit_text("mosamiha walakin kayn chi mochkil.")
     
-    async def debug_mode(self, update: Update, context):
+    async def debug_mode(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Commande /debug - Mode debug avancé"""
         if not context.args:
             await update.message.reply_text("mosamiha walakin kayn chi mochkil.")
@@ -400,16 +405,22 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
         except Exception as e:
             await wait_msg.edit_text("mosamiha walakin kayn chi mochkil.")
     
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """Gestionnaire d'erreurs"""
+        logger.error(f"Erreur: {context.error}", exc_info=True)
+    
     def run(self):
-        """Lancer le bot - SIMPLE POLLING VERSION (for Railway worker)"""
-        app = Application.builder().token(self.token).build()
+        """Lancer le bot - Version async corrigée"""
+        # Créer l'application
+        self.application = Application.builder().token(self.token).build()
         
-        # Commandes
-        app.add_handler(CommandHandler("start", self.start))
-        app.add_handler(CommandHandler("debug", self.debug_mode))
+        # Ajouter les gestionnaires
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("debug", self.debug_mode))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         
-        # Messages (URLs)
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        # Gestionnaire d'erreurs
+        self.application.add_error_handler(self.error_handler)
         
         print("=" * 70)
         print("🤖 BOT PDF EMBEDDER EXTRACTOR")
@@ -418,33 +429,14 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
         print("=" * 70)
         print("\n📝 En attente de liens elearning-cpge.com...")
         
-        app.run_polling()
+        # Démarrer le bot
+        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-# TEST RAPIDE DU DÉCODAGE
-def test_decodage():
-    """Tester le décodage avec un exemple connu"""
-    print("🧪 Test de décodage...")
-    
-    # Exemple de données pdfemb-data (extraites d'une vraie page)
-    example_base64 = "eyJpbmRleCI6MSwicGRmSUQiOjkyNDUsInBkZmVtYi1zZXJ2ZXVybCI6Imh0dHBzJTNBJTJGJTJGd3d3LmVsZWFybmluZy1jcGdlLmNvbSUyRndwLWNvbnRlbnQlMkZ1cGxvYWRzJTJGc2VjdXJlcGRmcyUyRjIwMjAlMkYwOSUyRmVsZWMxLnBkZiJ9"
-    
-    extractor = PDFEmbedderExtractor()
-    result = extractor._decode_pdfemb_data(example_base64)
-    
-    if result:
-        print(f"✅ Test réussi! URL décodée: {result}")
-        return True
-    else:
-        print("❌ Test échoué")
-        return False
-
-
-# POINT D'ENTRÉE
-if __name__ == "__main__":
+def main():
+    """Fonction principale"""
     # Récupérer le token depuis les variables d'environnement (Railway)
     # Sinon, utilise le token en dur
-    import os
     BOT_TOKEN = os.getenv('BOT_TOKEN', '8400311133:AAGK_ZvbB8ClU0L68P0TcLxFTP0KKYyzIC0')
     
     print("🚀 Lancement du Bot PDF Embedder Extractor...")
@@ -457,6 +449,7 @@ if __name__ == "__main__":
     else:
         print("💻 Environnement local détecté")
     
+    print(f"🤖 Token: {BOT_TOKEN[:10]}...")
     print("=" * 70)
     print("🤖 Bot prêt à recevoir des liens elearning-cpge.com")
     print("=" * 70)
@@ -467,5 +460,10 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Arrêt du bot.")
     except Exception as e:
-        print(f"❌ Erreur: {e}")
+        print(f"❌ Erreur fatale: {e}")
         logger.error(f"Erreur fatale: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
