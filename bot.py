@@ -397,7 +397,7 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
             await wait_msg.edit_text("mosamiha walakin kayn chi mochkil.")
     
     def run(self):
-        """Lancer le bot"""
+        """Lancer le bot avec webhooks pour Railway"""
         app = Application.builder().token(self.token).build()
         
         # Commandes
@@ -410,11 +410,38 @@ Salaaam, m3ak Hiba, kan9d nkhrj lik PDF mn ay link dyal elearning-cpge.com. Sift
         print("=" * 70)
         print("🤖 BOT PDF EMBEDDER EXTRACTOR")
         print("🎯 SPÉCIALISÉ pour elearning-cpge.com")
-        print("🔍 Recherche automatique de pdfemb-data")
+        print("🌐 MODE: WEBHOOK (Railway)")
         print("=" * 70)
-        print("\n📝 En attente de liens elearning-cpge.com...")
         
-        app.run_polling()
+        # Configuration webhook pour Railway
+        PORT = int(os.environ.get('PORT', 8443))
+        APP_NAME = os.environ.get('RAILWAY_STATIC_URL', '')
+        
+        if APP_NAME:
+            # Mode Railway - utiliser le nom d'application généré
+            webhook_url = f"https://{APP_NAME}.railway.app/"
+        else:
+            # Mode local - utiliser localhost
+            webhook_url = f"https://localhost:{PORT}/"
+        
+        print(f"📡 Port: {PORT}")
+        print(f"🌐 Webhook URL: {webhook_url}")
+        print("⏳ Démarrage du bot...")
+        
+        # Démarrer le bot
+        if APP_NAME:  # Mode production (Railway)
+            app.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                webhook_url=webhook_url,
+                secret_token=None,
+                cert=None,
+                key=None,
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES,
+            )
+        else:  # Mode développement (local)
+            app.run_polling()
 
 
 # TEST RAPIDE DU DÉCODAGE
@@ -438,14 +465,26 @@ def test_decodage():
 
 # POINT D'ENTRÉE
 if __name__ == "__main__":
-    # Essaie de récupérer le token depuis les variables d'environnement (Railway)
-    # Sinon, utilise le token en dur
     import os
+    
+    # Récupérer le token
     BOT_TOKEN = os.getenv('BOT_TOKEN', '8400311133:AAGK_ZvbB8ClU0L68P0TcLxFTP0KKYyzIC0')
     
-    print("🚀 Lancement du Bot PDF Embedder Extractor...")
+    # Détecter l'environnement
+    PORT = int(os.environ.get('PORT', 8443))
+    APP_NAME = os.environ.get('RAILWAY_STATIC_URL', '')
     
-    print("🤖 Bot prêt à recevoir des liens elearning-cpge.com")
+    print("=" * 70)
+    if APP_NAME:
+        print("🚀 MODE PRODUCTION (Railway)")
+        print(f"🌐 URL: https://{APP_NAME}.railway.app")
+    else:
+        print("💻 MODE DÉVELOPPEMENT (Local)")
+        print(f"🌐 Localhost: http://localhost:{PORT}")
+    print("=" * 70)
+    
+    print("🤖 Bot PDF Embedder Extractor")
+    print("🎯 Spécialisé pour elearning-cpge.com")
     print("=" * 70)
     
     try:
@@ -454,5 +493,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Arrêt du bot.")
     except Exception as e:
-
         print(f"❌ Erreur: {e}")
