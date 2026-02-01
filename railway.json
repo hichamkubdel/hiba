@@ -4,9 +4,9 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python bot.py",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 60,
+    "numReplicas": 1,
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 90,
     "restartPolicyType": "ON_FAILURE"
   }
 }
