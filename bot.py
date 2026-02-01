@@ -441,7 +441,7 @@ if __name__ == "__main__":
     # Essaie de récupérer le token depuis les variables d'environnement (Railway)
     # Sinon, utilise le token en dur
     import os
-    BOT_TOKEN = os.getenv('BOT_TOKEN', '8400311133:AAH8Q7YxumTmFwsXJx8sndwQ4v8qgJxfTdA')
+    BOT_TOKEN = os.getenv('BOT_TOKEN', '8400311133:AAGK_ZvbB8ClU0L68P0TcLxFTP0KKYyzIC0')
     
     print("🚀 Lancement du Bot PDF Embedder Extractor...")
     
@@ -454,4 +454,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Arrêt du bot.")
     except Exception as e:
+
         print(f"❌ Erreur: {e}")
