@@ -155,7 +155,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_document(
                     document=pdf_content,
                     filename=filename,
-                    caption="3la slamti hahwak pdf dyalk litlbti. U r welcome!"
+                    caption="3la slamti hahwa pdf dyalk litlbti. U r welcome!"
                 )
                 await wait_msg.delete()
             else:
@@ -182,3 +182,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
